@@ -1,12 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { Minus, Plus, UtensilsCrossed } from "lucide-react";
+import { Check, Minus, Plus, UtensilsCrossed } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 import type { Product } from "@/types";
 
 interface ProductCardProps {
@@ -24,9 +23,17 @@ export function ProductCard({
   onIncrement,
   onDecrement,
 }: ProductCardProps) {
+  function handleGrow() {
+    if (quantity === 0) {
+      onAdd();
+    } else {
+      onIncrement();
+    }
+  }
+
   return (
-    <Card className="gap-3 py-0">
-      <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-muted">
+    <Card className="gap-0 overflow-hidden rounded-2xl py-0 shadow-sm">
+      <div className="relative flex aspect-4/3 items-center justify-center overflow-hidden bg-muted">
         {product.imageUrl ? (
           <Image
             src={product.imageUrl}
@@ -40,58 +47,62 @@ export function ProductCard({
         )}
       </div>
 
-      <CardContent className="flex flex-col gap-3 pb-4">
-        <div>
-          <Badge
-            variant="secondary"
-            className="mb-1.5 font-normal text-muted-foreground"
-          >
-            {product.category}
-          </Badge>
-          <h3 className="text-sm font-semibold text-foreground">
+      <CardContent className="flex flex-col gap-2.5 p-3">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="line-clamp-1 text-sm font-semibold text-foreground">
             {product.name}
           </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <span className="shrink-0 text-sm font-bold text-primary">
             {formatCurrency(product.price)}
-          </p>
+          </span>
         </div>
 
-        {quantity === 0 ? (
-          <Button
-            size="lg"
-            className="w-full"
-            onClick={onAdd}
-            aria-label={`Add ${product.name} to cart`}
-          >
-            Add to Cart
-          </Button>
-        ) : (
-          <div className="flex w-full items-center justify-between rounded-lg border border-input">
+        <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center justify-between gap-1 rounded-full border border-input px-1 py-0.5 sm:justify-start sm:gap-2 sm:py-1">
             <Button
               type="button"
               variant="ghost"
               size="icon"
+              disabled={quantity === 0}
               onClick={onDecrement}
               aria-label={`Decrease quantity of ${product.name}`}
-              className="h-9 w-11"
+              className="size-6 rounded-full disabled:opacity-30"
             >
-              <Minus className="size-4" />
+              <Minus className="size-3.5" />
             </Button>
-            <span className="text-sm font-semibold text-foreground">
+            <span className="min-w-3 text-center text-xs font-semibold text-foreground">
               {quantity}
             </span>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              onClick={onIncrement}
+              onClick={handleGrow}
               aria-label={`Increase quantity of ${product.name}`}
-              className="h-9 w-11"
+              className="size-6 rounded-full"
             >
-              <Plus className="size-4" />
+              <Plus className="size-3.5" />
             </Button>
           </div>
-        )}
+
+          <Button
+            type="button"
+            size="sm"
+            variant={quantity > 0 ? "secondary" : "default"}
+            onClick={handleGrow}
+            aria-label={`Add ${product.name} to cart`}
+            className="h-8 w-full gap-1 rounded-full px-3 text-xs font-semibold transition-all sm:w-auto"
+          >
+            {quantity > 0 ? (
+              <>
+                <Check className="size-3.5" />
+                Added
+              </>
+            ) : (
+              "Add Item"
+            )}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

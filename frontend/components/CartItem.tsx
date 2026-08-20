@@ -4,7 +4,8 @@ import Image from "next/image";
 import { Minus, Plus, Trash2, UtensilsCrossed } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
+import { getLineTotal } from "@/lib/cart";
 import type { CartItem as CartItemType } from "@/types";
 
 interface CartItemProps {
@@ -20,7 +21,7 @@ export function CartItem({
   onDecrement,
   onRemove,
 }: CartItemProps) {
-  const subtotal = parseFloat(item.price) * item.quantity;
+  const subtotal = getLineTotal(item.price, item.quantity);
 
   return (
     <div className="flex gap-3 rounded-xl border border-border p-3">

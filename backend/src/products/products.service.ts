@@ -8,6 +8,7 @@ export class ProductsService {
   findAvailable() {
     return this.prisma.product.findMany({
       where: { isAvailable: true },
+      orderBy: { id: 'asc' },
       select: {
         id: true,
         name: true,

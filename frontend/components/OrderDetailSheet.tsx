@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 import { OrderStatus } from "@/components/OrderStatus";
 import {
   Sheet,
@@ -17,16 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { api } from "@/lib/api";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
+import { useOrderDetail } from "@/hooks/use-order-detail";
+import { STATUS_OPTIONS } from "@/constants/status";
+import { ORDER_LOAD_ERROR, ORDER_STATUS_UPDATE_ERROR } from "@/constants/messages";
 import type { Order, OrderStatus as OrderStatusValue } from "@/types";
-
-const STATUS_OPTIONS: OrderStatusValue[] = [
-  "PENDING",
-  "PREPARING",
-  "COMPLETED",
-  "CANCELLED",
-];
 
 export function OrderDetailSheet({
   orderId,
@@ -39,48 +32,8 @@ export function OrderDetailSheet({
   onOpenChange: (open: boolean) => void;
   onOrderUpdated?: (order: Order) => void;
 }) {
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [updating, setUpdating] = useState(false);
-  const [statusError, setStatusError] = useState(false);
-
-  useEffect(() => {
-    if (!open || orderId === null) return;
-    setOrder(null);
-    fetchOrder(orderId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, orderId]);
-
-  async function fetchOrder(id: number) {
-    setLoading(true);
-    setError(false);
-    try {
-      const res = await api.get<Order>(`/orders/${id}`);
-      setOrder(res.data);
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleStatusChange(status: OrderStatusValue) {
-    if (!order || updating || status === order.status) return;
-    setUpdating(true);
-    setStatusError(false);
-    try {
-      const res = await api.patch<Order>(`/orders/${order.id}/status`, {
-        status,
-      });
-      setOrder(res.data);
-      onOrderUpdated?.(res.data);
-    } catch {
-      setStatusError(true);
-    } finally {
-      setUpdating(false);
-    }
-  }
+  const { order, loading, error, updating, statusError, updateStatus, retry } =
+    useOrderDetail(open ? orderId : null, onOrderUpdated);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -98,13 +51,8 @@ export function OrderDetailSheet({
 
           {!loading && error && (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
-              <p className="text-sm text-foreground">
-                Unable to load order. Please try again.
-              </p>
-              <Button
-                variant="outline"
-                onClick={() => orderId !== null && fetchOrder(orderId)}
-              >
+              <p className="text-sm text-foreground">{ORDER_LOAD_ERROR}</p>
+              <Button variant="outline" onClick={retry}>
                 Retry
               </Button>
             </div>
@@ -125,7 +73,7 @@ export function OrderDetailSheet({
                     <Select
                       value={order.status}
                       onValueChange={(value) =>
-                        handleStatusChange(value as OrderStatusValue)
+                        updateStatus(value as OrderStatusValue)
                       }
                       disabled={updating}
                     >
@@ -144,7 +92,7 @@ export function OrderDetailSheet({
                 </div>
                 {statusError && (
                   <p className="mt-2 text-xs text-destructive" role="alert">
-                    Unable to update status. Please try again.
+                    {ORDER_STATUS_UPDATE_ERROR}
                   </p>
                 )}
               </div>

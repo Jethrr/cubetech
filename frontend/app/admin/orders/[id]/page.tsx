@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
@@ -14,16 +14,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { api } from "@/lib/api";
-import { formatCurrency } from "@/lib/utils";
-import type { Order, OrderStatus as OrderStatusValue } from "@/types";
-
-const STATUS_OPTIONS: OrderStatusValue[] = [
-  "PENDING",
-  "PREPARING",
-  "COMPLETED",
-  "CANCELLED",
-];
+import { formatCurrency } from "@/lib/format";
+import { useOrderDetail } from "@/hooks/use-order-detail";
+import { APP_ROUTES } from "@/constants/routes";
+import { STATUS_OPTIONS } from "@/constants/status";
+import { ORDER_LOAD_ERROR, ORDER_STATUS_UPDATE_ERROR } from "@/constants/messages";
+import type { OrderStatus as OrderStatusValue } from "@/types";
 
 export default function AdminOrderDetailPage({
   params,
@@ -31,43 +27,8 @@ export default function AdminOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [updating, setUpdating] = useState(false);
-  const [statusError, setStatusError] = useState(false);
-
-  useEffect(() => {
-    fetchOrder();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  async function fetchOrder() {
-    setLoading(true);
-    setError(false);
-    try {
-      const res = await api.get<Order>(`/orders/${id}`);
-      setOrder(res.data);
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleStatusChange(status: OrderStatusValue) {
-    if (!order || updating || status === order.status) return;
-    setUpdating(true);
-    setStatusError(false);
-    try {
-      const res = await api.patch<Order>(`/orders/${id}/status`, { status });
-      setOrder(res.data);
-    } catch {
-      setStatusError(true);
-    } finally {
-      setUpdating(false);
-    }
-  }
+  const { order, loading, error, updating, statusError, updateStatus, retry } =
+    useOrderDetail(id);
 
   return (
     <>
@@ -77,7 +38,7 @@ export default function AdminOrderDetailPage({
           variant="ghost"
           size="icon-sm"
           nativeButton={false}
-          render={<Link href="/admin/orders" aria-label="Back to orders" />}
+          render={<Link href={APP_ROUTES.adminOrders} aria-label="Back to orders" />}
         >
           <ArrowLeft className="size-4" />
         </Button>
@@ -95,10 +56,8 @@ export default function AdminOrderDetailPage({
 
         {!loading && error && (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
-            <p className="text-sm text-foreground">
-              Unable to load order. Please try again.
-            </p>
-            <Button variant="outline" onClick={fetchOrder}>
+            <p className="text-sm text-foreground">{ORDER_LOAD_ERROR}</p>
+            <Button variant="outline" onClick={retry}>
               Retry
             </Button>
           </div>
@@ -119,7 +78,7 @@ export default function AdminOrderDetailPage({
                   <Select
                     value={order.status}
                     onValueChange={(value) =>
-                      handleStatusChange(value as OrderStatusValue)
+                      updateStatus(value as OrderStatusValue)
                     }
                     disabled={updating}
                   >
@@ -138,7 +97,7 @@ export default function AdminOrderDetailPage({
               </div>
               {statusError && (
                 <p className="mt-2 text-xs text-destructive" role="alert">
-                  Unable to update status. Please try again.
+                  {ORDER_STATUS_UPDATE_ERROR}
                 </p>
               )}
             </div>
