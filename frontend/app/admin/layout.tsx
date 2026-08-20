@@ -17,6 +17,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from "@/components/ui/sidebar";
+import { APP_ROUTES } from "@/constants/routes";
 
 export default function AdminLayout({
   children,
@@ -24,7 +25,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isOrders = pathname?.startsWith("/admin/orders") ?? false;
+  const isOrders = pathname?.startsWith(APP_ROUTES.adminOrders) ?? false;
 
   return (
     <SidebarProvider className="min-h-svh lg:h-svh lg:overflow-hidden">
@@ -48,7 +49,7 @@ export default function AdminLayout({
                   <SidebarMenuButton
                     isActive={isOrders}
                     tooltip="Orders"
-                    render={<Link href="/admin/orders" />}
+                    render={<Link href={APP_ROUTES.adminOrders} />}
                   >
                     <ClipboardList />
                     <span>Orders</span>

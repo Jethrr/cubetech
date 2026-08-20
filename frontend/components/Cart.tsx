@@ -5,7 +5,8 @@ import { Trash2 } from "lucide-react";
 import { CartItem } from "@/components/CartItem";
 import { OrderForm } from "@/components/OrderForm";
 import { Button } from "@/components/ui/button";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
+import { getCartTotal, getLineTotal } from "@/lib/cart";
 import type { CartItem as CartItemType } from "@/types";
 
 interface CartProps {
@@ -33,10 +34,7 @@ export function Cart({
   submitting = false,
   submitError = null,
 }: CartProps) {
-  const total = items.reduce(
-    (sum, item) => sum + parseFloat(item.price) * item.quantity,
-    0,
-  );
+  const total = getCartTotal(items);
   const canPlaceOrder = items.length > 0;
 
   return (
@@ -67,7 +65,7 @@ export function Cart({
           </p>
         </div>
       ) : (
-        <div className="mt-2 flex-1 space-y-3 overflow-y-auto px-4 pb-4">
+        <div className="mt-2 flex-1 space-y-3 overflow-y-auto px-4 pb-4 scrollbar-hide">
           {items.map((item) => (
             <CartItem
               key={item.productId}
@@ -92,7 +90,7 @@ export function Cart({
                 {item.name} ({formatCurrency(item.price)} × {item.quantity})
               </span>
               <span className="shrink-0 text-sm text-foreground">
-                {formatCurrency(parseFloat(item.price) * item.quantity)}
+                {formatCurrency(getLineTotal(item.price, item.quantity))}
               </span>
             </div>
           ))}

@@ -33,5 +33,6 @@ export interface Order {
   totalAmount: string;
   status: OrderStatus;
   createdAt: string;
+  itemCount?: number;
   items?: OrderItem[];
 }

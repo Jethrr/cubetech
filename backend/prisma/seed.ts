@@ -80,13 +80,11 @@ async function main() {
   ].map((p) => ({ ...p, isAvailable: true }));
 
   for (const product of products) {
-    const { count } = await prisma.product.updateMany({
+    await prisma.product.upsert({
       where: { name: product.name },
-      data: product,
+      update: product,
+      create: product,
     });
-    if (count === 0) {
-      await prisma.product.create({ data: product });
-    }
   }
 }
 

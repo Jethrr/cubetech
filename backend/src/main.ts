@@ -12,7 +12,10 @@ async function bootstrap() {
     }),
   );
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: [
+      /^http:\/\/localhost:3000$/,
+      /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:3000$/,
+    ],
   });
 
   const config = new DocumentBuilder()

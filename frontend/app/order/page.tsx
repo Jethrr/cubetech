@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import axios from "axios";
 import { CheckCircle2, ShoppingBag, Store } from "lucide-react";
 
 import { Cart } from "@/components/Cart";
 import { ProductCard } from "@/components/ProductCard";
+import { TopLoader } from "@/components/TopLoader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -15,95 +16,57 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { api } from "@/lib/api";
-import { cn, formatCurrency } from "@/lib/utils";
-import type { CartItem, Order, Product } from "@/types";
-
-const GENERIC_SUBMIT_ERROR = "Unable to place your order. Please try again.";
-const UNAVAILABLE_SUBMIT_ERROR =
-  "Some items in your cart are no longer available. Please review your order.";
+import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
+import { useProducts } from "@/hooks/use-products";
+import { useCart } from "@/hooks/use-cart";
+import { API_ENDPOINTS } from "@/constants/routes";
+import { MIN_SUBMIT_DELAY_MS } from "@/constants/config";
+import { CATEGORY_ICONS, DEFAULT_CATEGORY_ICON, CATEGORY_ORDER } from "@/constants/menu";
+import {
+  MENU_LOAD_ERROR,
+  GENERIC_SUBMIT_ERROR,
+  UNAVAILABLE_SUBMIT_ERROR,
+} from "@/constants/messages";
+import type { Order } from "@/types";
 
 export default function OrderPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const { products, loading, error, retry: fetchProducts } = useProducts();
+  const {
+    items: cart,
+    addItem: addToCart,
+    incrementItem,
+    decrementItem,
+    removeItem,
+    clear: clearCart,
+    itemCount,
+    total,
+  } = useCart();
   const [activeCategory, setActiveCategory] = useState("All");
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
-
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  async function fetchProducts() {
-    setLoading(true);
-    setError(false);
-    try {
-      const res = await api.get<Product[]>("/products");
-      setProducts(res.data);
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function addToCart(product: Product) {
-    setCart((prev) => [
-      ...prev,
-      {
-        productId: product.id,
-        name: product.name,
-        price: product.price,
-        quantity: 1,
-        imageUrl: product.imageUrl,
-      },
-    ]);
-  }
-
-  function incrementItem(productId: number) {
-    setCart((prev) =>
-      prev.map((item) =>
-        item.productId === productId
-          ? { ...item, quantity: item.quantity + 1 }
-          : item,
-      ),
-    );
-  }
-
-  function decrementItem(productId: number) {
-    setCart((prev) =>
-      prev.flatMap((item) => {
-        if (item.productId !== productId) return [item];
-        if (item.quantity <= 1) return [];
-        return [{ ...item, quantity: item.quantity - 1 }];
-      }),
-    );
-  }
-
-  function removeItem(productId: number) {
-    setCart((prev) => prev.filter((item) => item.productId !== productId));
-  }
-
-  function clearCart() {
-    setCart([]);
-  }
 
   async function handlePlaceOrder() {
     if (submitting) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await api.post<Order>("/orders", {
-        customerName,
-        items: cart.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-        })),
-      });
+      const minDelay = new Promise((resolve) =>
+        setTimeout(resolve, MIN_SUBMIT_DELAY_MS),
+      );
+      const [res] = await Promise.all([
+        api.post<Order>(API_ENDPOINTS.orders, {
+          customerName,
+          items: cart.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+          })),
+        }),
+        minDelay,
+      ]);
       setConfirmedOrder(res.data);
       clearCart();
       setCustomerName("");
@@ -124,17 +87,21 @@ export default function OrderPage() {
     setSubmitError(null);
   }
 
-  const categories = ["All", ...new Set(products.map((p) => p.category))];
+  const presentCategories = new Set(products.map((p) => p.category));
+  const orderedCategories = [
+    ...CATEGORY_ORDER.filter((c) => presentCategories.has(c)),
+    ...[...presentCategories].filter((c) => !CATEGORY_ORDER.includes(c)),
+  ];
+  const categories = ["All", ...orderedCategories];
+  const categoryRank = new Map(orderedCategories.map((c, i) => [c, i]));
   const visibleProducts =
     activeCategory === "All"
-      ? products
+      ? [...products].sort(
+          (a, b) =>
+            (categoryRank.get(a.category) ?? orderedCategories.length) -
+            (categoryRank.get(b.category) ?? orderedCategories.length),
+        )
       : products.filter((p) => p.category === activeCategory);
-
-  const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const total = cart.reduce(
-    (sum, item) => sum + parseFloat(item.price) * item.quantity,
-    0,
-  );
 
   if (confirmedOrder) {
     return (
@@ -168,9 +135,10 @@ export default function OrderPage() {
 
   return (
     <div className="flex min-h-svh flex-col lg:h-svh lg:overflow-hidden">
+      {submitting && <TopLoader />}
       <div className="flex flex-1 flex-col lg:min-h-0 lg:flex-row lg:overflow-hidden">
         {/* Menu */}
-        <div className="flex flex-1 flex-col lg:min-w-0 lg:overflow-y-auto">
+        <div className="flex flex-1 flex-col lg:min-w-0 lg:overflow-y-auto scrollbar-hide">
           <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-background/95 px-4 py-4 backdrop-blur lg:px-6">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <Store className="size-4" />
@@ -192,9 +160,7 @@ export default function OrderPage() {
 
             {!loading && error && (
               <div className="flex flex-col items-center gap-3 py-16 text-center">
-                <p className="text-sm text-foreground">
-                  Unable to load menu. Please try again.
-                </p>
+                <p className="text-sm text-foreground">{MENU_LOAD_ERROR}</p>
                 <Button variant="outline" onClick={fetchProducts}>
                   Retry
                 </Button>
@@ -208,22 +174,27 @@ export default function OrderPage() {
             )}
 
             {!loading && !error && products.length > 0 && (
-              <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-                {categories.map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    onClick={() => setActiveCategory(category)}
-                    className={cn(
-                      "shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-                      activeCategory === category
-                        ? "bg-foreground text-background"
-                        : "text-muted-foreground hover:bg-muted",
-                    )}
-                  >
-                    {category}
-                  </button>
-                ))}
+              <div className="mb-5 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                {categories.map((category) => {
+                  const Icon = CATEGORY_ICONS[category] ?? DEFAULT_CATEGORY_ICON;
+                  const active = activeCategory === category;
+                  return (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() => setActiveCategory(category)}
+                      className={cn(
+                        "flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm transition-colors",
+                        active
+                          ? "border-foreground bg-foreground font-semibold text-background shadow-sm"
+                          : "border-border font-medium text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                      )}
+                    >
+                      <Icon className="size-4" />
+                      {category}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
@@ -237,7 +208,7 @@ export default function OrderPage() {
               )}
 
             {!loading && !error && visibleProducts.length > 0 && (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4 xl:grid-cols-5">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
                 {visibleProducts.map((product) => {
                   const cartItem = cart.find(
                     (i) => i.productId === product.id,

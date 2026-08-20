@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const MIN_NAME_LENGTH = 2;
-const MAX_NAME_LENGTH = 255;
+import { MIN_NAME_LENGTH, MAX_NAME_LENGTH } from "@/constants/config";
 
 interface OrderFormProps {
   customerName: string;
@@ -72,6 +71,7 @@ export function OrderForm({
         className="w-full rounded-full bg-gradient-to-r from-primary to-primary/70 text-base font-semibold shadow-md hover:from-primary/90 hover:to-primary/60"
         onClick={handleSubmit}
       >
+        {submitting && <Loader2 className="size-4 animate-spin" />}
         {submitting ? "Placing Order..." : "Place Order"}
       </Button>
     </div>

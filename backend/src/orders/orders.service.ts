@@ -54,17 +54,23 @@ export class OrdersService {
     });
   }
 
-  findAll() {
-    return this.prisma.order.findMany({
+  async findAll() {
+    const orders = await this.prisma.order.findMany({
       select: {
         id: true,
         customerName: true,
         totalAmount: true,
         status: true,
         createdAt: true,
+        _count: { select: { items: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return orders.map(({ _count, ...order }) => ({
+      ...order,
+      itemCount: _count.items,
+    }));
   }
 
   async findOne(id: number) {
@@ -86,6 +92,7 @@ export class OrdersService {
     return this.prisma.order.update({
       where: { id },
       data: { status: dto.status },
+      include: { items: true },
     });
   }
 }
